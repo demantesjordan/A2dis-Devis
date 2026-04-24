@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>A2DIS — Outil Devis</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="A2DIS Devis">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#c8166e">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23c8166e'/><text x='50' y='60' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>A2</text></svg>">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --a2dis-magenta: #c8166e;
+  --a2dis-pink: #e83e8c;
+  --a2dis-blue: #1e7fc2;
+  --a2dis-dark: #1a1a2e;
+  --a2dis-bg: #f5f5f7;
+  --a2dis-surface: #ffffff;
+  --a2dis-border: #e0e0e5;
+  --a2dis-text: #2a2a35;
+  --a2dis-muted: #6b6b78;
+  --red: #d63031;
+  --yellow: #f39c12;
+  --green: #27ae60;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04), 0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.05);
+  --safe-top: env(safe-area-inset-top, 0);
+  --safe-bot: env(safe-area-inset-bottom, 0);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body { overscroll-behavior-y: contain; -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: var(--a2dis-bg);
+  color: var(--a2dis-text);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-bottom: calc(var(--safe-bot) + 60px);
+}
+
+.app-header {
+  background: linear-gradient(135deg, var(--a2dis-magenta) 0%, var(--a2dis-blue) 100%);
+  color: white;
+  padding: calc(var(--safe-top) + 14px) 20px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.app-header h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.app-header .tagline { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+.header-actions { display: flex; gap: 6px; }
+
+.btn {
+  padding: 10px 14px; border: none; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 600; transition: all 0.15s;
+  font-family: inherit; display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; min-height: 40px; touch-action: manipulation;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--a2dis-magenta); color: white; }
+.btn-primary:hover { background: var(--a2dis-pink); }
+.btn-secondary { background: white; color: var(--a2dis-magenta); border: 1px solid var(--a2dis-border); }
+.btn-ghost { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.25); padding: 8px 10px; min-height: 36px; font-size: 12px; }
+.btn-ghost:active { background: rgba(255,255,255,0.25); }
+.btn-sm { padding: 6px 10px; font-size: 12px; min-height: 32px; }
+.btn-icon { width: 40px; height: 40px; padding: 0; font-size: 18px; }
+.btn-danger { background: var(--red); color: white; }
+
+.container {
+  max-width: 1500px; margin: 0 auto; padding: 16px;
+  display: grid; grid-template-columns: 320px 1fr; gap: 20px;
+}
+@media (max-width: 900px) { .container { grid-template-columns: 1fr; padding: 12px; gap: 12px; } }
+
+.sidebar, .main { display: flex; flex-direction: column; gap: 12px; }
+
+.panel {
+  background: var(--a2dis-surface); border-radius: 12px;
+  border: 1px solid var(--a2dis-border); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.panel-header {
+  padding: 14px 16px; border-bottom: 1px solid var(--a2dis-border);
+  background: #fafafa; display: flex; justify-content: space-between;
+  align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.panel-header h2 {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.8px; color: var(--a2dis-dark);
+}
+.panel-body { padding: 16px; }
+
+.collapsible-trigger { cursor: pointer; user-select: none; }
+.collapsible-trigger::after {
+  content: '▾'; margin-left: auto; transition: transform 0.2s;
+  font-size: 14px; color: var(--a2dis-muted);
+}
+.collapsible-trigger.collapsed::after { transform: rotate(-90deg); }
+.collapsible-content { transition: all 0.2s; overflow: hidden; }
+.collapsible-content.hidden { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; }
+
+.form-group { margin-bottom: 12px; }
+.form-group:last-child { margin-bottom: 0; }
+.form-group label {
+  display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--a2dis-muted); margin-bottom: 5px;
+}
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--a2dis-border);
+  border-radius: 8px; font-size: 16px; font-family: inherit;
+  transition: border-color 0.15s; background: white;
+  -webkit-appearance: none; appearance: none;
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--a2dis-magenta);
+  box-shadow: 0 0 0 3px rgba(200, 22, 110, 0.1);
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.lines-wrapper-desktop { overflow-x: auto; max-height: calc(100vh - 320px); overflow-y: auto; }
+table.lines { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.lines thead { position: sticky; top: 0; background: var(--a2dis-dark); color: white; z-index: 10; }
+table.lines th {
+  padding: 10px 8px; text-align: left; font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+}
+table.lines td { padding: 6px 8px; border-bottom: 1px solid var(--a2dis-border); vertical-align: middle; }
+table.lines tr:hover { background: #fafafa; }
+table.lines tr.section-header { background: linear-gradient(90deg, #fff4f8 0%, #f4f8ff 100%); }
+table.lines tr.section-header td {
+  padding: 8px; font-size: 12px; color: var(--a2dis-magenta);
+  text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700;
+}
+table.lines input, table.lines textarea {
+  width: 100%; padding: 4px 6px; border: 1px solid transparent;
+  border-radius: 3px; font-size: 12px; font-family: inherit; background: transparent;
+}
+table.lines input:hover, table.lines textarea:hover { border-color: var(--a2dis-border); background: white; }
+table.lines input:focus, table.lines textarea:focus { outline: none; border-color: var(--a2dis-magenta); background: white; }
+table.lines textarea { resize: vertical; min-height: 28px; }
+
+.col-num { width: 45px; text-align: center; color: var(--a2dis-muted); font-weight: 600; }
+.col-ref { width: 80px; }
+.col-qty { width: 70px; }
+.col-pu { width: 90px; }
+.col-total { width: 100px; text-align: right; font-weight: 600; }
+.col-action { width: 40px; text-align: center; }
+.col-priority { width: 120px; text-align: center; }
+.col-comment { min-width: 180px; }
+
+.lines-wrapper-mobile { display: none; padding: 0 12px 12px; }
+.line-card {
+  background: white; border: 1px solid var(--a2dis-border);
+  border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  box-shadow: var(--shadow-sm); position: relative;
+}
+.line-card.priority-red { border-left: 4px solid var(--red); }
+.line-card.priority-yellow { border-left: 4px solid var(--yellow); }
+.line-card.priority-green { border-left: 4px solid var(--green); }
+
+.line-card.section-card {
+  background: linear-gradient(90deg, #fff4f8 0%, #f4f8ff 100%);
+  border: 1px solid var(--a2dis-magenta); border-left: 4px solid var(--a2dis-magenta);
+  padding: 10px 12px; font-weight: 700; color: var(--a2dis-magenta);
+  text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.line-card.section-card input {
+  flex: 1; border: none; background: transparent; font-weight: 700;
+  color: var(--a2dis-magenta); text-transform: uppercase; font-size: 12px;
+  letter-spacing: 0.5px; padding: 4px 6px; border-radius: 4px;
+}
+.line-card.section-card input:focus { outline: none; background: white; border: 1px solid var(--a2dis-magenta); }
+
+.line-card .card-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 10px; gap: 10px;
+}
+.line-card .line-num-badge {
+  background: var(--a2dis-dark); color: white; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px; flex-shrink: 0;
+}
+.line-card .line-total { font-size: 16px; font-weight: 700; color: var(--a2dis-magenta); text-align: right; white-space: nowrap; }
+.line-card .line-ref-input {
+  width: 80px; padding: 6px 8px; border: 1px solid var(--a2dis-border);
+  border-radius: 6px; font-size: 12px; font-family: inherit;
+  font-weight: 600; color: var(--a2dis-muted);
+}
+.line-card .field-block { margin-bottom: 10px; }
+.line-card .field-block label {
+  display: block; font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.5px; color: var(--a2dis-muted); margin-bottom: 4px;
+}
+.line-card textarea, .line-card input[type="text"] {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--a2dis-border);
+  border-radius: 6px; font-size: 14px; font-family: inherit;
+  background: white; resize: vertical; min-height: 36px;
+}
+.line-card textarea:focus, .line-card input:focus {
+  outline: none; border-color: var(--a2dis-magenta);
+  box-shadow: 0 0 0 2px rgba(200, 22, 110, 0.1);
+}
+.line-card .qty-pu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.line-card .qty-pu-row input {
+  width: 100%; padding: 8px 10px; border: 1px solid var(--a2dis-border);
+  border-radius: 6px; font-size: 16px; font-family: inherit; background: white;
+}
+.line-card .priority-row {
+  display: flex; gap: 8px; margin-bottom: 10px; justify-content: center;
+  padding: 8px; background: #fafafa; border-radius: 8px;
+}
+.line-card .card-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  border-top: 1px solid var(--a2dis-border); padding-top: 10px; margin-top: 10px;
+}
+
+.priority-btn {
+  width: 42px; height: 42px; border-radius: 50%; border: 2px solid var(--a2dis-border);
+  cursor: pointer; font-size: 16px; display: inline-flex; align-items: center;
+  justify-content: center; transition: all 0.15s; background: white;
+  padding: 0; color: #999; touch-action: manipulation; flex-shrink: 0;
+}
+.priority-btn:active { transform: scale(0.92); }
+.priority-btn.small { width: 32px; height: 32px; font-size: 14px; }
+.priority-btn.active-red { background: var(--red); border-color: var(--red); color: white; box-shadow: 0 2px 6px rgba(214,48,49,0.3); }
+.priority-btn.active-yellow { background: var(--yellow); border-color: var(--yellow); color: white; box-shadow: 0 2px 6px rgba(243,156,18,0.3); }
+.priority-btn.active-green { background: var(--green); border-color: var(--green); color: white; box-shadow: 0 2px 6px rgba(39,174,96,0.3); }
+.priority-group { display: inline-flex; gap: 4px; align-items: center; justify-content: center; }
+
+.totals {
+  background: linear-gradient(135deg, #fff4f8 0%, #f0f5ff 100%);
+  padding: 18px; border-radius: 10px; border: 2px solid var(--a2dis-magenta); margin: 16px;
+}
+.totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; gap: 10px; }
+.totals-row.big {
+  font-size: 17px; font-weight: 700; border-top: 2px solid var(--a2dis-magenta);
+  padding-top: 10px; margin-top: 6px; color: var(--a2dis-magenta);
+}
+
+.upload-zone {
+  border: 2px dashed var(--a2dis-border); border-radius: 10px;
+  padding: 18px; text-align: center; cursor: pointer;
+  transition: all 0.2s; background: #fafafa; display: block;
+}
+.upload-zone:active, .upload-zone.dragover { border-color: var(--a2dis-magenta); background: #fff4f8; }
+.upload-zone .icon { font-size: 28px; margin-bottom: 6px; }
+.upload-zone p { color: var(--a2dis-muted); font-size: 12px; }
+.upload-zone input[type="file"] { display: none; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-card {
+  background: white; border: 1px solid var(--a2dis-border);
+  border-radius: 10px; padding: 12px 8px; text-align: center;
+}
+.stat-card.red { border-top: 3px solid var(--red); }
+.stat-card.yellow { border-top: 3px solid var(--yellow); }
+.stat-card.green { border-top: 3px solid var(--green); }
+.stat-card .num { font-size: 22px; font-weight: 700; }
+.stat-card .label { font-size: 10px; color: var(--a2dis-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+
+.toast {
+  position: fixed; bottom: calc(var(--safe-bot) + 80px); left: 50%;
+  transform: translateX(-50%); background: var(--a2dis-dark); color: white;
+  padding: 12px 20px; border-radius: 20px; box-shadow: var(--shadow-md);
+  z-index: 1000; animation: slideUp 0.3s ease; max-width: 90%;
+  text-align: center; font-size: 13px;
+}
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+@keyframes slideUp { from { transform: translate(-50%, 30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: none; align-items: flex-end; justify-content: center;
+  z-index: 500; padding: 0;
+}
+.modal-backdrop.show { display: flex; }
+.modal {
+  background: white; border-radius: 16px 16px 0 0;
+  max-width: 600px; width: 100%; max-height: 92vh;
+  overflow-y: auto; box-shadow: var(--shadow-md);
+  animation: slideUpModal 0.3s ease; padding-bottom: calc(var(--safe-bot) + 8px);
+}
+@keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (min-width: 700px) {
+  .modal-backdrop { align-items: center; padding: 20px; }
+  .modal { border-radius: 12px; animation: none; }
+}
+.modal-handle { width: 40px; height: 4px; background: var(--a2dis-border); border-radius: 2px; margin: 8px auto; }
+@media (min-width: 700px) { .modal-handle { display: none; } }
+.modal-header {
+  padding: 14px 20px; border-bottom: 1px solid var(--a2dis-border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-header h3 { font-size: 16px; font-weight: 700; }
+.modal-body { padding: 18px 20px; }
+.modal-footer {
+  padding: 14px 20px; border-top: 1px solid var(--a2dis-border);
+  display: flex; justify-content: flex-end; gap: 10px;
+  background: #fafafa; position: sticky; bottom: 0;
+}
+.close-x {
+  background: none; border: none; font-size: 24px; cursor: pointer;
+  color: var(--a2dis-muted); padding: 8px; line-height: 1;
+  min-width: 40px; min-height: 40px;
+}
+
+.hint {
+  background: #fffbea; border-left: 3px solid var(--yellow);
+  padding: 10px 12px; font-size: 12px; color: #666;
+  border-radius: 4px; margin: 12px; line-height: 1.4;
+}
+
+.mobile-actions { display: none; }
+@media (max-width: 900px) {
+  .mobile-actions {
+    display: flex; position: fixed; bottom: 0; left: 0; right: 0;
+    background: white; border-top: 1px solid var(--a2dis-border);
+    padding: 8px 12px calc(var(--safe-bot) + 8px); gap: 8px;
+    z-index: 99; box-shadow: 0 -4px 12px rgba(0,0,0,0.08);
+  }
+  .mobile-actions .btn { flex: 1; }
+  body { padding-bottom: calc(var(--safe-bot) + 72px); }
+}
+
+.desktop-only { display: block; }
+.mobile-only { display: none; }
+@media (max-width: 900px) {
+  .desktop-only { display: none; }
+  .mobile-only { display: block; }
+  .lines-wrapper-desktop { display: none; }
+  .lines-wrapper-mobile { display: block; }
+  .app-header h1 { font-size: 16px; }
+  .app-header .tagline { display: none; }
+  .panel-header h2 { font-size: 11px; }
+  .panel-body { padding: 14px; }
+  .totals { margin: 12px; padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>A2DIS — Devis</h1>
+    <div class="tagline">Retraitement devis prestataires</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost btn-icon" onclick="openSettings()" title="Paramètres">⚙️</button>
+    <button class="btn btn-ghost btn-icon" onclick="resetToExample()" title="Charger Dourges">🔄</button>
+    <button class="btn btn-ghost btn-icon desktop-only" onclick="exportPDF()" title="Exporter PDF">📄</button>
+  </div>
+</div>
+
+<div class="container">
+  <aside class="sidebar">
+
+    <div class="panel">
+      <div class="panel-header collapsible-trigger" onclick="toggleSection(this)">
+        <h2>📥 Import PDF prestataire</h2>
+      </div>
+      <div class="collapsible-content">
+        <div class="panel-body">
+          <label class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept="application/pdf,.pdf">
+            <div class="icon">📥</div>
+            <p><strong>Cliquer</strong> ou déposer un PDF</p>
+            <p style="margin-top:4px;font-size:11px;">Extraction automatique des lignes</p>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header collapsible-trigger" onclick="toggleSection(this)">
+        <h2>👤 Client final</h2>
+      </div>
+      <div class="collapsible-content">
+        <div class="panel-body">
+          <div class="form-group">
+            <label>Raison sociale</label>
+            <input type="text" id="clientName" value="SED Dourges">
+          </div>
+          <div class="form-group">
+            <label>Adresse</label>
+            <textarea id="clientAddress">Site logistique de Dourges
+62119 Dourges</textarea>
+          </div>
+          <div class="form-group">
+            <label>Référence chantier</label>
+            <input type="text" id="chantierRef" value="DOURGES — Remise en état VGP">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header collapsible-trigger" onclick="toggleSection(this)">
+        <h2>📋 Devis & marge</h2>
+      </div>
+      <div class="collapsible-content">
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>N° Devis</label>
+              <input type="text" id="devisNum" value="A2DIS-2026-001">
+            </div>
+            <div class="form-group">
+              <label>Date</label>
+              <input type="date" id="devisDate">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Marge globale (%)</label>
+            <input type="number" id="margin" value="20" min="0" step="0.5" onchange="recalc()" inputmode="decimal">
+          </div>
+          <div class="form-group">
+            <label>Taux TVA (%)</label>
+            <input type="number" id="tva" value="20" min="0" step="0.5" onchange="recalc()" inputmode="decimal">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>📊 Synthèse priorités</h2>
+      </div>
+      <div class="panel-body">
+        <div class="stats">
+          <div class="stat-card red">
+            <div class="num" id="statRed">0</div>
+            <div class="label">🔴 Urgent</div>
+          </div>
+          <div class="stat-card yellow">
+            <div class="num" id="statYellow">0</div>
+            <div class="label">🟡 À prévoir</div>
+          </div>
+          <div class="stat-card green">
+            <div class="num" id="statGreen">0</div>
+            <div class="label">🟢 Optionnel</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="main">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Lignes du devis</h2>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="addSection()">+ Section</button>
+          <button class="btn btn-secondary btn-sm" onclick="addLine()">+ Ligne</button>
+        </div>
+      </div>
+
+      <div class="hint">
+        💡 Utilisez les pastilles <span style="color:var(--red);font-size:16px;">●</span> <span style="color:var(--yellow);font-size:16px;">●</span> <span style="color:var(--green);font-size:16px;">●</span> pour prioriser chaque ligne et ajouter vos préconisations.
+      </div>
+
+      <div class="lines-wrapper-desktop">
+        <table class="lines">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-ref">Réf.</th>
+              <th>Désignation</th>
+              <th class="col-qty">Qté</th>
+              <th class="col-pu">PU HT</th>
+              <th class="col-total">Total HT</th>
+              <th class="col-priority">Priorité</th>
+              <th class="col-comment">Commentaire A2DIS</th>
+              <th class="col-action"></th>
+            </tr>
+          </thead>
+          <tbody id="linesBodyDesktop"></tbody>
+        </table>
+      </div>
+
+      <div class="lines-wrapper-mobile" id="linesBodyMobile"></div>
+
+      <div class="totals">
+        <div class="totals-row">
+          <span>Sous-total fournitures</span>
+          <span id="subtotalBase">0,00 €</span>
+        </div>
+        <div class="totals-row">
+          <span>Marge A2DIS (<span id="marginPct">20</span>%)</span>
+          <span id="marginAmount">0,00 €</span>
+        </div>
+        <div class="totals-row">
+          <span><strong>Total HT</strong></span>
+          <span id="totalHT"><strong>0,00 €</strong></span>
+        </div>
+        <div class="totals-row">
+          <span>TVA (<span id="tvaPct">20</span>%)</span>
+          <span id="totalTVA">0,00 €</span>
+        </div>
+        <div class="totals-row big">
+          <span>TOTAL TTC</span>
+          <span id="totalTTC">0,00 €</span>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="mobile-actions">
+  <button class="btn btn-secondary" onclick="addLine()">+ Ligne</button>
+  <button class="btn btn-primary" onclick="exportPDF()">📄 Exporter PDF</button>
+</div>
+
+<div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <h3>⚙️ Paramètres A2DIS</h3>
+      <button class="close-x" onclick="closeSettings()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Logo A2DIS</label>
+        <input type="file" id="logoInput" accept="image/*">
+        <div id="logoPreview" style="margin-top:10px;"></div>
+      </div>
+      <div class="form-group">
+        <label>Raison sociale</label>
+        <input type="text" id="companyName" value="A2DIS">
+      </div>
+      <div class="form-group">
+        <label>Slogan</label>
+        <input type="text" id="companyTagline" value="LA LIVRAISON SPÉCIALISÉE">
+      </div>
+      <div class="form-group">
+        <label>Adresse</label>
+        <textarea id="companyAddress">Z.I de Moimont, 1 Rue Jean Jaurès
+95670 Marly-la-Ville</textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Téléphone</label>
+          <input type="tel" id="companyPhone" value="" inputmode="tel">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="companyEmail" value="" inputmode="email">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>SIRET</label>
+          <input type="text" id="companySiret" value="75371629900023" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label>N° TVA intracom</label>
+          <input type="text" id="companyTva" value="FR48753716299">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Marge par défaut (%)</label>
+        <input type="number" id="defaultMargin" value="20" min="0" step="0.5" inputmode="decimal">
+      </div>
+      <div class="form-group">
+        <label>Conditions / Mentions devis</label>
+        <textarea id="devisTerms" rows="3">Devis valable 30 jours. Paiement à 30 jours fin de mois.</textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSettings()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveSettings()">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let state = { lines: [], nextId: 1 };
+let isMobile = () => window.innerWidth <= 900;
+
+const dourgesData = [
+  { type: 'section', label: 'VIDANGE COMPLÈTE DES 72 QUAI NIVELEURS' },
+  { ref: '', designation: "Fourniture de 360 litres d'huile hydraulique", qty: 360, pu: 5.45, priority: 'red', comment: 'Préconisation générale — risque de casse' },
+  { ref: 'AR0049', designation: "Forfait M/O et déplacement (vidanges)", qty: 1, pu: 2600, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE RAMPE PASSERELLE VL' },
+  { ref: 'AR0311', designation: 'Verrou coulissant pour porte HORMANN', qty: 1, pu: 74.49, priority: 'yellow', comment: '' },
+  { type: 'section', label: 'PORTE N°2' },
+  { ref: 'AR0277', designation: 'Section basse porte sectionnelle Hormann — L 2700 x H 730', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { type: 'section', label: 'PORTE N°3' },
+  { ref: 'AR0277', designation: 'Section basse porte sectionnelle Hormann — L 2700 x H 730', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 610', qty: 3, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 610', qty: 3, pu: 260, priority: 'red', comment: 'Section intermédiaire' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 610', qty: 1, pu: 260, priority: 'red', comment: 'Avec hublot' },
+  { ref: '', designation: 'Option 2 hublots', qty: 2, pu: 85, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°6 / QUAI N°6' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'yellow', comment: 'Endommagée mais fonctionnelle' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile — capot acier + amortisseur caoutchouc', qty: 0.5, pu: 1350, priority: 'red', comment: 'Butoir intérieur droit' },
+  { type: 'section', label: 'PORTE N°7' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { type: 'section', label: 'PORTE N°9' },
+  { ref: 'AR0311', designation: 'Verrou coulissant porte HORMANN', qty: 1, pu: 74.49, priority: 'yellow', comment: 'Verrou à remplacer' },
+  { type: 'section', label: 'PORTE N°10' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 710', qty: 3, pu: 260, priority: 'red', comment: '' },
+  { ref: 'AR0311', designation: 'Verrou coulissant porte HORMANN', qty: 1, pu: 74.49, priority: 'yellow', comment: '' },
+  { type: 'section', label: 'PORTE N°12' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { type: 'section', label: 'PORTE RAMPE N°1' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 4040 x H 730', qty: 4.4, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 4040 x H 730', qty: 4.4, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: '', designation: 'Cellule palpeur HORMANN', qty: 1, pu: 230, priority: 'red', comment: 'Joint palpeur sécurité basse' },
+  { type: 'section', label: 'PORTE RAMPE N°2' },
+  { ref: 'AR0004', designation: 'Gyrophare clignotant LED multitension', qty: 1, pu: 63, priority: 'yellow', comment: 'Gyrophare à remplacer' },
+  { type: 'section', label: 'PORTE N°13 / QUAI N°13' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 1, pu: 1350, priority: 'red', comment: 'Plateau endommagé' },
+  { type: 'section', label: 'QUAI N°14' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 0.5, pu: 1350, priority: 'red', comment: 'Butoir gauche intérieur' },
+  { type: 'section', label: 'PORTE N°15' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { type: 'section', label: 'PORTE N°16 / QUAI N°16' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 0.5, pu: 1350, priority: 'red', comment: 'Butoir gauche intérieur' },
+  { type: 'section', label: 'PORTE N°17' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°19 / QUAI N°19' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 1, pu: 1350, priority: 'red', comment: 'Butoirs à remplacer' },
+  { type: 'section', label: 'PORTE N°20 / QUAI N°20' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0232', designation: 'Joue de sécurité quai — tôle acier galvanisé', qty: 1, pu: 135, priority: 'red', comment: 'Joue droite' },
+  { type: 'section', label: 'PORTE N°21' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: 'Section basse à remplacer' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 1, pu: 1350, priority: 'red', comment: 'Butoirs à remplacer' },
+  { type: 'section', label: 'PORTE N°22 / QUAI N°22' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 610', qty: 3, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 1, pu: 1350, priority: 'red', comment: 'Butoirs à remplacer' },
+  { type: 'section', label: 'PORTE N°23 / QUAI N°23' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 0.5, pu: 1350, priority: 'red', comment: 'Butoir gauche intérieur' },
+  { type: 'section', label: 'PORTE N°43' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°45' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°49' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°56' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'yellow', comment: 'Endommagée mais fonctionnelle' },
+  { type: 'section', label: 'PORTE N°58' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE RAMPE N°5' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 4040 x H 710', qty: 4.4, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 4040 x H 710', qty: 4.4, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 4040 x H 710', qty: 4.4, pu: 260, priority: 'red', comment: 'Section intermédiaire n°3 avec hublots' },
+  { ref: '', designation: 'Option 2 hublots', qty: 2, pu: 85, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE RAMPE N°6' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 4040 x H 710', qty: 4.4, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 4040 x H 710', qty: 4.4, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: '', designation: 'Cellule palpeur HORMANN', qty: 1, pu: 230, priority: 'red', comment: 'Palpeur sécurité basse' },
+  { type: 'section', label: 'PORTE N°67' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°68' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 1, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°70' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°73' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: 'PORTE N°77' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 610', qty: 3, pu: 260, priority: 'red', comment: 'Section intermédiaire n°2' },
+  { ref: 'AR0278', designation: 'Section intermédiaire Hormann — L 2700 x H 710', qty: 3, pu: 260, priority: 'red', comment: 'Section intermédiaire n°3 avec hublot' },
+  { ref: '', designation: 'Option hublot', qty: 2, pu: 85, priority: 'red', comment: '' },
+  { type: 'section', label: 'QUAI N°80' },
+  { ref: 'AR0237', designation: 'Butoir de quai mobile', qty: 0.5, pu: 1350, priority: 'red', comment: 'Butoir gauche extérieur' },
+  { type: 'section', label: 'PORTE N°83' },
+  { ref: 'AR0277', designation: 'Section basse Hormann — L 2700 x H 710', qty: 3, pu: 290, priority: 'red', comment: '' },
+  { type: 'section', label: "MAIN D'ŒUVRE & DÉPLACEMENT" },
+  { ref: 'AR0049', designation: "Forfait main d'œuvre et déplacement (pose)", qty: 1, pu: 4300, priority: 'red', comment: '' },
+  { type: 'section', label: 'TRAITEMENT ANTI-CORROSION PLATEAUX (à confirmer)' },
+  { ref: '', designation: 'Remise en peinture + traitement anti-rouille plateaux quais 74-84', qty: 1, pu: 0, priority: 'red', comment: 'Urgent selon rapport VGP — devis complémentaire à demander' }
+];
+
+function init() {
+  loadSettings();
+  resetToExample();
+  setupUploadZone();
+  setupLogoUpload();
+  document.getElementById('devisDate').valueAsDate = new Date();
+  window.addEventListener('resize', () => render());
+}
+
+function resetToExample() {
+  state.lines = dourgesData.map(d => ({
+    id: state.nextId++,
+    type: d.type || 'line',
+    label: d.label || '',
+    ref: d.ref || '',
+    designation: d.designation || '',
+    qty: d.qty || 0,
+    pu: d.pu || 0,
+    priority: d.priority || null,
+    comment: d.comment || ''
+  }));
+  render();
+  toast('Devis Dourges pré-chargé');
+}
+
+function render() {
+  renderDesktop();
+  renderMobile();
+  recalc();
+}
+
+function renderDesktop() {
+  const tbody = document.getElementById('linesBodyDesktop');
+  tbody.innerHTML = '';
+  let lineCounter = 0;
+  const margin = parseFloat(document.getElementById('margin').value || 0);
+
+  state.lines.forEach((l, idx) => {
+    const tr = document.createElement('tr');
+    if (l.type === 'section') {
+      tr.className = 'section-header';
+      tr.innerHTML = `
+        <td colspan="8" style="padding-left:12px;">
+          <input type="text" value="${escapeHtml(l.label)}" onchange="updateField(${idx},'label',this.value)" style="font-weight:700;color:var(--a2dis-magenta);text-transform:uppercase;">
+        </td>
+        <td class="col-action">
+          <button class="btn btn-sm btn-danger" onclick="removeLine(${idx})" title="Supprimer">×</button>
+        </td>
+      `;
+    } else {
+      lineCounter++;
+      const total = l.qty * l.pu * (1 + margin / 100);
+      tr.innerHTML = `
+        <td class="col-num">${lineCounter}</td>
+        <td class="col-ref"><input type="text" value="${escapeHtml(l.ref)}" onchange="updateField(${idx},'ref',this.value)"></td>
+        <td><textarea onchange="updateField(${idx},'designation',this.value)">${escapeHtml(l.designation)}</textarea></td>
+        <td class="col-qty"><input type="number" step="0.01" value="${l.qty}" onchange="updateField(${idx},'qty',parseFloat(this.value)||0)"></td>
+        <td class="col-pu"><input type="number" step="0.01" value="${l.pu}" onchange="updateField(${idx},'pu',parseFloat(this.value)||0)"></td>
+        <td class="col-total">${formatMoney(total)}</td>
+        <td class="col-priority">
+          <div class="priority-group">
+            <button class="priority-btn small ${l.priority==='red'?'active-red':''}" onclick="togglePriority(${idx},'red')">●</button>
+            <button class="priority-btn small ${l.priority==='yellow'?'active-yellow':''}" onclick="togglePriority(${idx},'yellow')">●</button>
+            <button class="priority-btn small ${l.priority==='green'?'active-green':''}" onclick="togglePriority(${idx},'green')">●</button>
+          </div>
+        </td>
+        <td class="col-comment"><textarea onchange="updateField(${idx},'comment',this.value)" placeholder="Préconisation A2DIS...">${escapeHtml(l.comment)}</textarea></td>
+        <td class="col-action">
+          <button class="btn btn-sm btn-danger" onclick="removeLine(${idx})">×</button>
+        </td>
+      `;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function renderMobile() {
+  const container = document.getElementById('linesBodyMobile');
+  container.innerHTML = '';
+  let lineCounter = 0;
+  const margin = parseFloat(document.getElementById('margin').value || 0);
+
+  state.lines.forEach((l, idx) => {
+    const div = document.createElement('div');
+
+    if (l.type === 'section') {
+      div.className = 'line-card section-card';
+      div.innerHTML = `
+        <input type="text" value="${escapeHtml(l.label)}" onchange="updateField(${idx},'label',this.value)">
+        <button class="btn btn-sm btn-danger" onclick="removeLine(${idx})" style="flex-shrink:0;">×</button>
+      `;
+    } else {
+      lineCounter++;
+      const total = l.qty * l.pu * (1 + margin / 100);
+      const priorityClass = l.priority ? `priority-${l.priority}` : '';
+      div.className = `line-card ${priorityClass}`;
+      div.innerHTML = `
+        <div class="card-head">
+          <span class="line-num-badge">#${lineCounter}</span>
+          <input type="text" class="line-ref-input" value="${escapeHtml(l.ref)}" placeholder="Réf." onchange="updateField(${idx},'ref',this.value)">
+          <div class="line-total">${formatMoney(total)}</div>
+        </div>
+        <div class="field-block">
+          <label>Désignation</label>
+          <textarea onchange="updateField(${idx},'designation',this.value)" rows="2">${escapeHtml(l.designation)}</textarea>
+        </div>
+        <div class="qty-pu-row">
+          <div>
+            <label style="font-size:10px;font-weight:600;color:var(--a2dis-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Quantité</label>
+            <input type="number" inputmode="decimal" step="0.01" value="${l.qty}" onchange="updateField(${idx},'qty',parseFloat(this.value)||0)">
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:600;color:var(--a2dis-muted);text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">PU HT (€)</label>
+            <input type="number" inputmode="decimal" step="0.01" value="${l.pu}" onchange="updateField(${idx},'pu',parseFloat(this.value)||0)">
+          </div>
+        </div>
+        <div class="field-block">
+          <label>Priorité A2DIS</label>
+          <div class="priority-row">
+            <button class="priority-btn ${l.priority==='red'?'active-red':''}" onclick="togglePriority(${idx},'red')" title="Urgent / Sécurité">●</button>
+            <button class="priority-btn ${l.priority==='yellow'?'active-yellow':''}" onclick="togglePriority(${idx},'yellow')" title="À prévoir">●</button>
+            <button class="priority-btn ${l.priority==='green'?'active-green':''}" onclick="togglePriority(${idx},'green')" title="Optionnel">●</button>
+          </div>
+        </div>
+        <div class="field-block">
+          <label>Commentaire / Préconisation A2DIS</label>
+          <textarea onchange="updateField(${idx},'comment',this.value)" placeholder="Votre préconisation..." rows="2">${escapeHtml(l.comment)}</textarea>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-sm btn-danger" onclick="removeLine(${idx})">🗑 Supprimer</button>
+        </div>
+      `;
+    }
+    container.appendChild(div);
+  });
+}
+
+function updateField(idx, field, value) {
+  state.lines[idx][field] = value;
+  if (field === 'qty' || field === 'pu') render();
+  else if (field === 'priority') render();
+  else updateStats();
+}
+
+function togglePriority(idx, priority) {
+  state.lines[idx].priority = (state.lines[idx].priority === priority) ? null : priority;
+  render();
+}
+
+function addLine() {
+  state.lines.push({ id: state.nextId++, type: 'line', ref: '', designation: '', qty: 1, pu: 0, priority: null, comment: '' });
+  render();
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+}
+
+function addSection() {
+  const label = prompt('Titre de la section :');
+  if (!label) return;
+  state.lines.push({ id: state.nextId++, type: 'section', label });
+  render();
+}
+
+function removeLine(idx) {
+  if (!confirm('Supprimer cette ligne ?')) return;
+  state.lines.splice(idx, 1);
+  render();
+}
+
+function toggleSection(trigger) {
+  trigger.classList.toggle('collapsed');
+  const content = trigger.nextElementSibling;
+  if (content) content.classList.toggle('hidden');
+}
+
+function recalc() {
+  const margin = parseFloat(document.getElementById('margin').value || 0);
+  const tva = parseFloat(document.getElementById('tva').value || 0);
+
+  let baseTotal = 0;
+  state.lines.forEach(l => { if (l.type === 'line') baseTotal += l.qty * l.pu; });
+
+  const marginAmount = baseTotal * margin / 100;
+  const totalHT = baseTotal + marginAmount;
+  const totalTVA = totalHT * tva / 100;
+  const totalTTC = totalHT + totalTVA;
+
+  document.getElementById('subtotalBase').textContent = formatMoney(baseTotal);
+  document.getElementById('marginAmount').textContent = formatMoney(marginAmount);
+  document.getElementById('marginPct').textContent = margin;
+  document.getElementById('totalHT').innerHTML = `<strong>${formatMoney(totalHT)}</strong>`;
+  document.getElementById('totalTVA').textContent = formatMoney(totalTVA);
+  document.getElementById('tvaPct').textContent = tva;
+  document.getElementById('totalTTC').textContent = formatMoney(totalTTC);
+
+  updateStats();
+}
+
+function updateStats() {
+  let r = 0, y = 0, g = 0;
+  state.lines.forEach(l => {
+    if (l.priority === 'red') r++;
+    else if (l.priority === 'yellow') y++;
+    else if (l.priority === 'green') g++;
+  });
+  document.getElementById('statRed').textContent = r;
+  document.getElementById('statYellow').textContent = y;
+  document.getElementById('statGreen').textContent = g;
+}
+
+function formatMoney(n) {
+  return (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
+function escapeHtml(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openSettings() { document.getElementById('settingsModal').classList.add('show'); }
+function closeSettings() { document.getElementById('settingsModal').classList.remove('show'); }
+
+function saveSettings() {
+  const s = {
+    companyName: document.getElementById('companyName').value,
+    companyTagline: document.getElementById('companyTagline').value,
+    companyAddress: document.getElementById('companyAddress').value,
+    companyPhone: document.getElementById('companyPhone').value,
+    companyEmail: document.getElementById('companyEmail').value,
+    companySiret: document.getElementById('companySiret').value,
+    companyTva: document.getElementById('companyTva').value,
+    defaultMargin: document.getElementById('defaultMargin').value,
+    devisTerms: document.getElementById('devisTerms').value,
+    logo: window._logoDataUrl || null
+  };
+  try {
+    localStorage.setItem('a2dis_settings', JSON.stringify(s));
+  } catch(e) {
+    toast('Impossible de sauvegarder', 'error');
+    return;
+  }
+  document.getElementById('margin').value = s.defaultMargin;
+  recalc();
+  closeSettings();
+  toast('Paramètres enregistrés', 'success');
+}
+
+function loadSettings() {
+  const s = localStorage.getItem('a2dis_settings');
+  if (!s) return;
+  try {
+    const p = JSON.parse(s);
+    ['companyName','companyTagline','companyAddress','companyPhone','companyEmail','companySiret','companyTva','defaultMargin','devisTerms'].forEach(f => {
+      if (p[f] && document.getElementById(f)) document.getElementById(f).value = p[f];
+    });
+    if (p.logo) {
+      window._logoDataUrl = p.logo;
+      showLogoPreview(p.logo);
+    }
+    if (p.defaultMargin) document.getElementById('margin').value = p.defaultMargin;
+  } catch(e) {}
+}
+
+function setupLogoUpload() {
+  document.getElementById('logoInput').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 300;
+        const ratio = Math.min(1, maxW / img.width);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        window._logoDataUrl = canvas.toDataURL('image/png');
+        showLogoPreview(window._logoDataUrl);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function showLogoPreview(dataUrl) {
+  document.getElementById('logoPreview').innerHTML = `<img src="${dataUrl}" style="max-height:80px;max-width:200px;border:1px solid var(--a2dis-border);padding:4px;border-radius:4px;background:white;">`;
+}
+
+function setupUploadZone() {
+  const zone = document.getElementById('uploadZone');
+  const input = document.getElementById('fileInput');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handlePdfUpload(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', e => {
+    if (e.target.files[0]) handlePdfUpload(e.target.files[0]);
+  });
+}
+
+async function handlePdfUpload(file) {
+  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    toast('Merci de déposer un PDF', 'error');
+    return;
+  }
+  toast('Analyse du PDF...');
+  try {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      const strings = content.items.map(it => it.str);
+      fullText += strings.join(' ') + '\n';
+    }
+    const lines = parseBenoniDevis(fullText);
+    if (lines.length > 0) {
+      if (confirm(`${lines.length} lignes détectées. Remplacer les lignes actuelles ?`)) {
+        state.lines = lines.map(d => ({
+          id: state.nextId++,
+          type: d.type || 'line',
+          label: d.label || '',
+          ref: d.ref || '',
+          designation: d.designation || '',
+          qty: d.qty || 0,
+          pu: d.pu || 0,
+          priority: null,
+          comment: ''
+        }));
+        render();
+        toast(`${lines.length} lignes importées`, 'success');
+      }
+    } else {
+      toast('Aucune ligne reconnue', 'error');
+    }
+  } catch(e) {
+    console.error(e);
+    toast('Erreur lecture PDF', 'error');
+  }
+}
+
+function parseBenoniDevis(text) {
+  const lines = [];
+  const arRe = /(AR\d{4})\s+([^A-Z\n]{10,200}?)\s+(\d+[,.]\d{3})\s+(\d+[,.]\d{2})/g;
+  let match;
+  while ((match = arRe.exec(text)) !== null) {
+    const ref = match[1];
+    let designation = match[2].trim().replace(/\s+/g, ' ');
+    const qty = parseFloat(match[3].replace(',', '.'));
+    const pu = parseFloat(match[4].replace(',', '.'));
+    if (qty > 0 && qty < 1000 && pu > 0 && pu < 100000) {
+      lines.push({ type: 'line', ref, designation: designation.substring(0, 200), qty, pu });
+    }
+  }
+  return lines;
+}
+
+async function exportPDF() {
+  toast('Génération du PDF...');
+  await new Promise(r => setTimeout(r, 50));
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+
+    const settings = JSON.parse(localStorage.getItem('a2dis_settings') || '{}');
+
+    doc.setFillColor(200, 22, 110);
+    doc.rect(0, 0, pageW, 4, 'F');
+
+    if (window._logoDataUrl) {
+      try { doc.addImage(window._logoDataUrl, 'PNG', 14, 10, 30, 30); } catch(e) {}
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(200, 22, 110);
+    doc.text(settings.companyName || 'A2DIS', 50, 18);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(settings.companyTagline || 'LA LIVRAISON SPÉCIALISÉE', 50, 23);
+    doc.setFontSize(8);
+    doc.setTextColor(60);
+    const addrLines = (settings.companyAddress || 'Z.I de Moimont, 1 Rue Jean Jaurès\n95670 Marly-la-Ville').split('\n');
+    let y = 30;
+    addrLines.forEach(l => { doc.text(l, 50, y); y += 4; });
+    if (settings.companyPhone) { doc.text('Tél : ' + settings.companyPhone, 50, y); y += 4; }
+    if (settings.companyEmail) { doc.text('Email : ' + settings.companyEmail, 50, y); y += 4; }
+    if (settings.companySiret) { doc.text('SIRET : ' + settings.companySiret, 50, y); y += 4; }
+    if (settings.companyTva) { doc.text('TVA : ' + settings.companyTva, 50, y); }
+
+    doc.setFillColor(30, 127, 194);
+    doc.rect(pageW - 80, 10, 66, 28, 'F');
+    doc.setTextColor(255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('DEVIS', pageW - 77, 20);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('N° : ' + document.getElementById('devisNum').value, pageW - 77, 27);
+    const dateVal = document.getElementById('devisDate').value;
+    const dateFr = dateVal ? new Date(dateVal).toLocaleDateString('fr-FR') : '';
+    doc.text('Date : ' + dateFr, pageW - 77, 32);
+    doc.text('Chantier : ' + document.getElementById('chantierRef').value.substring(0, 30), pageW - 77, 36);
+
+    doc.setTextColor(60);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLIENT', 130, 55);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(document.getElementById('clientName').value, 130, 61);
+    doc.setFontSize(9);
+    const clientAddr = document.getElementById('clientAddress').value.split('\n');
+    let cy = 66;
+    clientAddr.forEach(l => { doc.text(l, 130, cy); cy += 4; });
+
+    let startY = 80;
+    doc.setFillColor(245, 245, 247);
+    doc.rect(14, startY, pageW - 28, 18, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(60);
+    doc.text('SYNTHÈSE DES PRÉCONISATIONS A2DIS', 18, startY + 6);
+
+    let r = 0, yl = 0, g = 0;
+    state.lines.forEach(l => {
+      if (l.priority === 'red') r++;
+      else if (l.priority === 'yellow') yl++;
+      else if (l.priority === 'green') g++;
+    });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setFillColor(214, 48, 49);
+    doc.circle(20, startY + 13, 2, 'F');
+    doc.setTextColor(60);
+    doc.text(`URGENT / Sécurité : ${r}`, 26, startY + 14);
+    doc.setFillColor(243, 156, 18);
+    doc.circle(75, startY + 13, 2, 'F');
+    doc.text(`À prévoir : ${yl}`, 81, startY + 14);
+    doc.setFillColor(39, 174, 96);
+    doc.circle(120, startY + 13, 2, 'F');
+    doc.text(`Optionnel : ${g}`, 126, startY + 14);
+
+    const margin = parseFloat(document.getElementById('margin').value || 0);
+    const tableData = [];
+    let lineNum = 0;
+
+    state.lines.forEach(l => {
+      if (l.type === 'section') {
+        tableData.push([{ content: l.label, colSpan: 7, styles: { fillColor: [255, 244, 248], textColor: [200, 22, 110], fontStyle: 'bold', halign: 'left' } }]);
+      } else {
+        lineNum++;
+        const total = l.qty * l.pu * (1 + margin / 100);
+        const prioSymbol = l.priority ? '●' : '';
+        const prioColor = l.priority === 'red' ? [214,48,49] : l.priority === 'yellow' ? [243,156,18] : l.priority === 'green' ? [39,174,96] : [200,200,200];
+        tableData.push([
+          lineNum,
+          l.ref,
+          l.designation + (l.comment ? '\n» ' + l.comment : ''),
+          l.qty.toString().replace('.', ','),
+          formatMoney(l.pu),
+          formatMoney(total),
+          { content: prioSymbol, styles: { textColor: prioColor, halign: 'center', fontStyle: 'bold' } }
+        ]);
+      }
+    });
+
+    doc.autoTable({
+      startY: startY + 22,
+      head: [['#', 'Réf.', 'Désignation / Préconisation A2DIS', 'Qté', 'PU HT', 'Total HT', '●']],
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2, lineColor: [220,220,225], lineWidth: 0.1 },
+      headStyles: { fillColor: [26, 26, 46], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 'auto' },
+        3: { cellWidth: 14, halign: 'right' },
+        4: { cellWidth: 22, halign: 'right' },
+        5: { cellWidth: 25, halign: 'right' },
+        6: { cellWidth: 10, halign: 'center' }
+      },
+      didDrawPage: () => {
+        doc.setFontSize(7);
+        doc.setTextColor(120);
+        doc.text(`${settings.companyName || 'A2DIS'} — ${settings.companyAddress ? settings.companyAddress.replace('\n',', ') : ''}`, 14, pageH - 8);
+        doc.text('Page ' + doc.internal.getNumberOfPages(), pageW - 20, pageH - 8);
+      }
+    });
+
+    let finalY = doc.lastAutoTable.finalY + 8;
+    if (finalY > pageH - 60) { doc.addPage(); finalY = 20; }
+
+    const tva = parseFloat(document.getElementById('tva').value || 0);
+    let baseTotal = 0;
+    state.lines.forEach(l => { if (l.type === 'line') baseTotal += l.qty * l.pu; });
+    const marginAmount = baseTotal * margin / 100;
+    const totalHT = baseTotal + marginAmount;
+    const totalTVA = totalHT * tva / 100;
+    const totalTTC = totalHT + totalTVA;
+
+    const totX = pageW - 90;
+    doc.setFillColor(245, 245, 247);
+    doc.rect(totX, finalY, 76, 40, 'F');
+    doc.setDrawColor(200, 22, 110);
+    doc.setLineWidth(0.5);
+    doc.rect(totX, finalY, 76, 40);
+
+    doc.setFontSize(9);
+    doc.setTextColor(60);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Total HT', totX + 3, finalY + 7);
+    doc.text(formatMoney(totalHT), totX + 73, finalY + 7, { align: 'right' });
+    doc.text(`TVA (${tva}%)`, totX + 3, finalY + 14);
+    doc.text(formatMoney(totalTVA), totX + 73, finalY + 14, { align: 'right' });
+    doc.setDrawColor(200, 22, 110);
+    doc.line(totX + 3, finalY + 18, totX + 73, finalY + 18);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(200, 22, 110);
+    doc.text('TOTAL TTC', totX + 3, finalY + 27);
+    doc.text(formatMoney(totalTTC), totX + 73, finalY + 27, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text('Net à payer', totX + 3, finalY + 34);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formatMoney(totalTTC), totX + 73, finalY + 34, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(100);
+    const terms = settings.devisTerms || 'Devis valable 30 jours.';
+    const termsLines = doc.splitTextToSize(terms, 100);
+    let ty = finalY + 5;
+    termsLines.forEach(l => { doc.text(l, 14, ty); ty += 3; });
+
+    const fileName = `Devis_A2DIS_${document.getElementById('devisNum').value}_${new Date().toISOString().slice(0,10)}.pdf`;
+
+    if (isMobile()) {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } else {
+      doc.save(fileName);
+    }
+    toast('PDF généré', 'success');
+  } catch(e) {
+    console.error(e);
+    toast('Erreur : ' + e.message, 'error');
+  }
+}
+
+function toast(msg, type = '') {
+  const existing = document.querySelectorAll('.toast');
+  existing.forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+init();
+</script>
+
+</body>
+</html>
